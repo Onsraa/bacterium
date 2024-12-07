@@ -6,19 +6,34 @@ use rand::Rng;
 use crate::{genetics, params};
 use crate::genetics::{create_population, Genome};
 
-pub fn initialize_bacteria(
-    commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<ColorMaterial>>
-) {
-    let population = create_population(POPULATION_SIZE);
-    spawn_population(commands, meshes, materials, &population);
+#[derive(Resource, Default)]
+pub struct PopulationResource {
+    pub population: Option<Vec<Genome>>,
 }
 
-pub fn spawn_population(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>, population: &[Genome]) {
+pub fn initialize_bacteria(
+    mut population_resource: ResMut<PopulationResource>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>
+) {
+    // On crée la population et on la stocke dans la resource
+    population_resource.population = Some(create_population(POPULATION_SIZE));
+    // On spawn immédiatement la population initiale et la nourriture
+    if let Some(population) = &population_resource.population {
+        println!("Hewo");
+        spawn_population(&mut commands, &mut meshes, &mut materials, population);
+        spawn_food(&mut commands, &mut meshes, &mut materials);
+    }
+}
 
+pub fn spawn_population(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    population: &[Genome]
+) {
     let mut rng = rand::thread_rng();
-
     for genome in population.iter() {
         let color = genetics::determine_color(&genome);
 
@@ -39,9 +54,9 @@ pub fn spawn_population(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>
 }
 
 pub fn spawn_food(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>
 ) {
     let mut rng = rand::thread_rng();
 

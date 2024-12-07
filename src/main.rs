@@ -10,13 +10,13 @@ mod ui;
 use bevy::{
     prelude::*,
     window::PresentMode,
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    //diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
 };
 use rand::Rng;
-
+use log::info;
 use crate::components::{Bacterium, Food};
-use crate::environment::{initialize_bacteria, spawn_food, spawn_population};
-use crate::genetics::{calculate_fitness, create_population, mutate, random_crossover, roulette_wheel_selection, Genome};
+use crate::environment::{initialize_bacteria, spawn_food, spawn_population, PopulationResource};
+use crate::genetics::{calculate_fitness, mutate, random_crossover, roulette_wheel_selection};
 use crate::params::{POPULATION_SIZE, SIMULATION_DURATION};
 // use crate::plugins::{SimulationPlugin, GeneticPlugin, UiPlugin};
 // use crate::resources::GlobalSettings;
@@ -39,8 +39,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
+    info!("Start setup.");
     commands.spawn(Camera2d);
-    println!("Setup start.");
 }
 
 #[derive(Resource)]
@@ -53,10 +53,11 @@ fn update_generation(
     time: Res<Time>,
     mut generation_timer: ResMut<GenerationTimer>,
     mut generation_count: ResMut<GenerationCount>,
+    mut population_resource: ResMut<PopulationResource>,
     bacterium : Query<(Entity, &Bacterium)>,
-    // food : Query<Entity, With<Food>>,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<ColorMaterial>>
+    foods : Query<Entity, With<Food>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>
 ) {
     generation_timer.0.tick(time.delta());
     if generation_timer.0.finished() {
@@ -105,18 +106,21 @@ fn update_generation(
             }
         }
 
+        population_resource.population = Some(new_population);
+
         // On supprime l'ancienne population
         for (_,_,e) in pop_with_fitness {
             commands.entity(e).despawn();
         }
 
-        // for e in food.iter() {
-        //     commands.entity(e).despawn();
-        // }
+        for e in foods.iter() {
+            commands.entity(e).despawn();
+        }
 
-        // On spawn la nouvelle population
-        spawn_population(commands, meshes, materials, &new_population);
-        //spawn_food(commands, meshes, materials);
+        if let Some(_) = population_resource.population {
+            spawn_population(&mut commands, &mut meshes, &mut materials, population_resource.population.as_ref().unwrap());
+            spawn_food(&mut commands, &mut meshes, &mut materials);
+        }
 
         generation_count.0 += 1;
         println!("Nouvelle génération : {}", generation_count.0);
@@ -129,6 +133,7 @@ impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(GenerationTimer(Timer::from_seconds(SIMULATION_DURATION, TimerMode::Repeating)));
         app.insert_resource(GenerationCount(0));
+        app.insert_resource(PopulationResource::default());
         app.add_systems(Startup, setup);
         app.add_systems(Startup, initialize_bacteria);
         app.add_systems(Update, update_generation);
