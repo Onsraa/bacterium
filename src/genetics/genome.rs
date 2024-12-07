@@ -36,19 +36,28 @@ pub fn random_genome() -> Genome {
 }
 
 /// Accesseurs et mutateurs pour les champs du génome
-pub fn get_r(genome: &Genome) -> u8 { bits_to_u8(&genome[0..8]) }
+///
+/// On modifie les getters pour les couleurs afin qu'ils renvoient un `f32`
+/// entre 0.0 et 1.0 directement.
+pub fn get_r(genome: &Genome) -> f32 {
+    bits_to_u8(&genome[0..8]) as f32 / 255.0
+}
 pub fn set_r(genome: &mut Genome, r_val: u8) {
     let mut slice = &mut genome[0..8];
     u8_to_bits(r_val, &mut slice);
 }
 
-pub fn get_g(genome: &Genome) -> u8 { bits_to_u8(&genome[8..16]) }
+pub fn get_g(genome: &Genome) -> f32 {
+    bits_to_u8(&genome[8..16]) as f32 / 255.0
+}
 pub fn set_g(genome: &mut Genome, g_val: u8) {
     let mut slice = &mut genome[8..16];
     u8_to_bits(g_val, &mut slice);
 }
 
-pub fn get_b(genome: &Genome) -> u8 { bits_to_u8(&genome[16..24]) }
+pub fn get_b(genome: &Genome) -> f32 {
+    bits_to_u8(&genome[16..24]) as f32 / 255.0
+}
 pub fn set_b(genome: &mut Genome, b_val: u8) {
     let mut slice = &mut genome[16..24];
     u8_to_bits(b_val, &mut slice);
@@ -124,9 +133,9 @@ pub fn set_compatibilite_genetique(genome: &mut Genome, val: u8) {
 
 /// Interprétation de l’agressivité et de la sociabilité via la couleur
 pub fn interpret_behavior_from_color(genome: &Genome) -> (f32, f32) {
-    let r = get_r(genome) as f32 / 255.0;
-    let g = get_g(genome) as f32 / 255.0;
-    let b = get_b(genome) as f32 / 255.0;
+    let r = get_r(genome);
+    let g = get_g(genome);
+    let b = get_b(genome);
     let aggressivite = (r - g + 1.0) / 2.0;
     let sociabilite = b;
     (aggressivite, sociabilite)
