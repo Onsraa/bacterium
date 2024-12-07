@@ -64,16 +64,6 @@ pub fn get_aggressivity(genome: &Genome) -> u8 {
     bits_to_u8(&genome[2..6])
 }
 
-fn docile_aggressive_color(base: Color, aggressivity: f32) -> Color {
-    if aggressivity < 0.5 {
-        let amount = 0.5 - aggressivity;
-        base.lighter(amount)
-    } else {
-        let amount = aggressivity - 0.5;
-        base.darker(amount)
-    }
-}
-
 /// Détermine la couleur en fonction du mode de nourrissage et de l’agressivité
 pub fn determine_color(genome: &Genome) -> Color {
     let feeding_mode = get_feeding_mode(genome) % 3;
