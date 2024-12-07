@@ -16,7 +16,6 @@ use bevy::{
 use rand::Rng;
 
 use crate::components::Bacterium;
-use crate::genetics::{get_b, get_g, get_r};
 // use crate::plugins::{SimulationPlugin, GeneticPlugin, UiPlugin};
 // use crate::resources::GlobalSettings;
 
@@ -55,13 +54,11 @@ fn initialize_bacteria(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>,
     let mut rng = rand::thread_rng();
 
     for genome in population {
+        let color = genetics::determine_color(&genome);
 
-        let r = get_r(&genome);
-        let g = get_g(&genome);
-        let b = get_b(&genome);
 
         let shape = meshes.add(Circle::new(5.0));
-        let color = Color::srgb(r, g, b);
+        let color = Color::from(color);
 
         let x = rng.gen_range(- params::WIDTH / 2.0..params::WIDTH / 2.0);
         let y = rng.gen_range(- params::HEIGHT / 2.0..params::HEIGHT / 2.0);

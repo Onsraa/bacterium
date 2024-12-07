@@ -1,11 +1,10 @@
-//! Gestion du génome et fonctions associées
-
+use bevy::color::Luminance;
+use bevy::prelude::Color;
 use bitvec::prelude::*;
 use rand::Rng;
 
-pub type Genome = BitArr!(for 64, in u8, Msb0);
+pub type Genome = BitArr!(for 32, in u8, Msb0);
 
-/// Convertit un slice de bits en u8
 pub fn bits_to_u8(bits: &BitSlice<u8, Msb0>) -> u8 {
     let mut value = 0u8;
     for bit in bits {
@@ -15,8 +14,28 @@ pub fn bits_to_u8(bits: &BitSlice<u8, Msb0>) -> u8 {
     value
 }
 
-/// Convertit un u8 en bits sur la slice fournie
+/// Convertit un slice de bits en u16 (max 16 bits)
+pub fn bits_to_u16(bits: &BitSlice<u8, Msb0>) -> u16 {
+    let mut value = 0u16;
+    for bit in bits {
+        value <<= 1;
+        value |= *bit as u16;
+    }
+    value
+}
+
+/// Convertit un u8 en bits
 pub fn u8_to_bits(value: u8, bits: &mut BitSlice<u8, Msb0>) {
+    let length = bits.len();
+    let mut mask = 1 << (length - 1);
+    for mut bit in bits {
+        *bit = (value & mask) != 0;
+        mask >>= 1;
+    }
+}
+
+/// Convertit un u16 en bits
+pub fn u16_to_bits(value: u16, bits: &mut BitSlice<u8, Msb0>) {
     let length = bits.len();
     let mut mask = 1 << (length - 1);
     for mut bit in bits {
@@ -35,110 +54,90 @@ pub fn random_genome() -> Genome {
     g
 }
 
-/// Accesseurs et mutateurs pour les champs du génome
-///
-/// On modifie les getters pour les couleurs afin qu'ils renvoient un `f32`
-/// entre 0.0 et 1.0 directement.
-pub fn get_r(genome: &Genome) -> f32 {
-    bits_to_u8(&genome[0..8]) as f32 / 255.0
-}
-pub fn set_r(genome: &mut Genome, r_val: u8) {
-    let mut slice = &mut genome[0..8];
-    u8_to_bits(r_val, &mut slice);
+/// Mode de Nourrissage (2 bits) [0..2)
+pub fn get_feeding_mode(genome: &Genome) -> u8 {
+    bits_to_u8(&genome[0..2])
 }
 
-pub fn get_g(genome: &Genome) -> f32 {
-    bits_to_u8(&genome[8..16]) as f32 / 255.0
-}
-pub fn set_g(genome: &mut Genome, g_val: u8) {
-    let mut slice = &mut genome[8..16];
-    u8_to_bits(g_val, &mut slice);
+/// Agressivité (4 bits) [2..6)
+pub fn get_aggressivity(genome: &Genome) -> u8 {
+    bits_to_u8(&genome[2..6])
 }
 
-pub fn get_b(genome: &Genome) -> f32 {
-    bits_to_u8(&genome[16..24]) as f32 / 255.0
-}
-pub fn set_b(genome: &mut Genome, b_val: u8) {
-    let mut slice = &mut genome[16..24];
-    u8_to_bits(b_val, &mut slice);
+fn docile_aggressive_color(base: Color, aggressivity: f32) -> Color {
+    if aggressivity < 0.5 {
+        let amount = 0.5 - aggressivity;
+        base.lighter(amount)
+    } else {
+        let amount = aggressivity - 0.5;
+        base.darker(amount)
+    }
 }
 
+/// Détermine la couleur en fonction du mode de nourrissage et de l’agressivité
+pub fn determine_color(genome: &Genome) -> Color {
+    let feeding_mode = get_feeding_mode(genome) % 3;
+    let aggressivity = get_aggressivity(genome) as f32 / 15.0;
+    let intensity = 1.0 - aggressivity * 0.8;
+
+    let base_color = match feeding_mode {
+        0 => Color::srgb(0.0, intensity, 0.0),      // Herbivore (Vert)
+        1 => Color::srgb(intensity, 0.0, 0.0),      // Carnivore (Rouge)
+        2 => Color::srgb(0.0, 0.0, intensity),       // Omnivore (Bleu)
+        _ => panic!("No feeding behavior detected."),
+    };
+
+    base_color
+}
+
+pub fn set_aggressivity(genome: &mut Genome, val: u8) {
+    let mut slice = &mut genome[2..6];
+    u8_to_bits(val & 0b1111, &mut slice);
+}
+
+/// Sociabilité (4 bits) [6..10)
+pub fn get_sociability(genome: &Genome) -> u8 {
+    bits_to_u8(&genome[6..10])
+}
+pub fn set_sociability(genome: &mut Genome, val: u8) {
+    let mut slice = &mut genome[6..10];
+    u8_to_bits(val & 0b1111, &mut slice);
+}
+
+/// Nombre de Flagelles (2 bits) [10..12)
 pub fn get_number_of_flagella(genome: &Genome) -> u8 {
-    bits_to_u8(&genome[24..26])
+    bits_to_u8(&genome[10..12])
 }
 pub fn set_number_of_flagella(genome: &mut Genome, n: u8) {
-    let mut slice = &mut genome[24..26];
+    let mut slice = &mut genome[10..12];
     u8_to_bits(n & 0b11, &mut slice);
 }
 
-pub fn get_flagella_size(genome: &Genome, flag_num: u8) -> u8 {
-    let start = match flag_num {
-        1 => 26,
-        2 => 29,
-        3 => 32,
-        _ => panic!("Flagelle invalide"),
-    };
-    bits_to_u8(&genome[start..(start+3)])
+/// Taille du Flagelle (3 bits) [12..15)
+pub fn get_flagella_size(genome: &Genome) -> u8 {
+    bits_to_u8(&genome[12..15])
 }
-pub fn set_flagella_size(genome: &mut Genome, flag_num: u8, size_val: u8) {
-    let start = match flag_num {
-        1 => 26,
-        2 => 29,
-        3 => 32,
-        _ => panic!("Flagelle invalide"),
-    };
-    let mut slice = &mut genome[start..(start+3)];
+pub fn set_flagella_size(genome: &mut Genome, size_val: u8) {
+    let mut slice = &mut genome[12..15];
     u8_to_bits(size_val & 0b111, &mut slice);
 }
 
-pub fn get_feeding_mode(genome: &Genome) -> u8 {
-    bits_to_u8(&genome[35..37])
-}
-pub fn set_feeding_mode(genome: &mut Genome, mode: u8) {
-    let mut slice = &mut genome[35..37];
-    u8_to_bits(mode & 0b11, &mut slice);
-}
-
-pub fn get_resilience(genome: &Genome) -> u8 {
-    bits_to_u8(&genome[37..41])
-}
-pub fn set_resilience(genome: &mut Genome, val: u8) {
-    let mut slice = &mut genome[37..41];
-    u8_to_bits(val & 0b1111, &mut slice);
-}
-
+/// Longévité (5 bits) [15..20)
 pub fn get_longevity(genome: &Genome) -> u8 {
-    bits_to_u8(&genome[41..48])
+    bits_to_u8(&genome[15..20])
 }
 pub fn set_longevity(genome: &mut Genome, val: u8) {
-    let mut slice = &mut genome[41..48];
-    u8_to_bits(val & 0b111_1111, &mut slice);
+    let mut slice = &mut genome[15..20];
+    u8_to_bits(val & 0b11111, &mut slice);
 }
 
-pub fn get_propension_echange(genome: &Genome) -> u8 {
-    bits_to_u8(&genome[48..52])
+/// Énergie (12 bits) [20..32)
+pub fn get_energy(genome: &Genome) -> u16 {
+    bits_to_u16(&genome[20..32]) // max 4095
 }
-pub fn set_propension_echange(genome: &mut Genome, val: u8) {
-    let mut slice = &mut genome[48..52];
-    u8_to_bits(val & 0b1111, &mut slice);
-}
-
-pub fn get_compatibilite_genetique(genome: &Genome) -> u8 {
-    bits_to_u8(&genome[52..56])
-}
-pub fn set_compatibilite_genetique(genome: &mut Genome, val: u8) {
-    let mut slice = &mut genome[52..56];
-    u8_to_bits(val & 0b1111, &mut slice);
-}
-
-/// Interprétation de l’agressivité et de la sociabilité via la couleur
-pub fn interpret_behavior_from_color(genome: &Genome) -> (f32, f32) {
-    let r = get_r(genome);
-    let g = get_g(genome);
-    let b = get_b(genome);
-    let aggressivite = (r - g + 1.0) / 2.0;
-    let sociabilite = b;
-    (aggressivite, sociabilite)
+pub fn set_energy(genome: &mut Genome, val: u16) {
+    let mut slice = &mut genome[20..32];
+    u16_to_bits(val & 0xFFF, &mut slice); // 0xFFF = 4095 max sur 12 bits
 }
 
 /// Crée une population de `count` espèces aléatoires
