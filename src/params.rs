@@ -10,3 +10,5 @@ pub const WIDTH: f32 = 500.0;
 pub const HEIGHT: f32 = 500.0;
 
 pub const SIMULATION_DURATION: f32 = 0.2;
+
+pub const NUMBER_SPAWNED_FOOD: u32 = 20;

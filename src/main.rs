@@ -14,7 +14,8 @@ use bevy::{
 };
 use rand::Rng;
 
-use crate::components::Bacterium;
+use crate::components::{Bacterium, Food};
+use crate::environment::{initialize_bacteria, spawn_food, spawn_population};
 use crate::genetics::{calculate_fitness, create_population, mutate, random_crossover, roulette_wheel_selection, Genome};
 use crate::params::{POPULATION_SIZE, SIMULATION_DURATION};
 // use crate::plugins::{SimulationPlugin, GeneticPlugin, UiPlugin};
@@ -42,46 +43,6 @@ fn setup(mut commands: Commands) {
     println!("Setup start.");
 }
 
-// fn check_bacteria(query: Query<(Entity, &Bacterium)>) {
-//
-//     for (e, bacterium) in query.iter() {
-//         println!("Bacterium id : {}", e);
-//         println!("{:?}", bacterium);
-//     }
-// }
-
-fn initialize_bacteria(
-    commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<ColorMaterial>>
-) {
-    let population = create_population(POPULATION_SIZE);
-    spawn_population(commands, meshes, materials, &population);
-}
-
-fn spawn_population(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>, population: &[Genome]) {
-
-    let mut rng = rand::thread_rng();
-
-    for genome in population.iter() {
-        let color = genetics::determine_color(&genome);
-
-
-        let shape = meshes.add(Circle::new(5.0));
-        let color = Color::from(color);
-
-        let x = rng.gen_range(- params::WIDTH / 2.0..params::WIDTH / 2.0);
-        let y = rng.gen_range(- params::HEIGHT / 2.0..params::HEIGHT / 2.0);
-
-        commands.spawn((
-            Bacterium {genome: *genome, ..default()},
-            Mesh2d(shape),
-            MeshMaterial2d(materials.add(color)),
-            Transform::from_xyz(x, y,0.0),
-        ));
-    }
-}
-
 #[derive(Resource)]
 struct GenerationTimer(Timer);
 #[derive(Resource)]
@@ -92,7 +53,8 @@ fn update_generation(
     time: Res<Time>,
     mut generation_timer: ResMut<GenerationTimer>,
     mut generation_count: ResMut<GenerationCount>,
-    query: Query<(Entity, &Bacterium)>,
+    bacterium : Query<(Entity, &Bacterium)>,
+    // food : Query<Entity, With<Food>>,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<ColorMaterial>>
 ) {
@@ -100,7 +62,7 @@ fn update_generation(
     if generation_timer.0.finished() {
         println!("Génération {} terminée, évolution en cours..", generation_count.0);
         let mut pop_with_fitness = Vec::new();
-        for (e, b) in query.iter() {
+        for (e, b) in bacterium.iter() {
             let fit = calculate_fitness(&b.genome);
             pop_with_fitness.push((b.genome, fit, e));
         }
@@ -148,8 +110,13 @@ fn update_generation(
             commands.entity(e).despawn();
         }
 
+        // for e in food.iter() {
+        //     commands.entity(e).despawn();
+        // }
+
         // On spawn la nouvelle population
         spawn_population(commands, meshes, materials, &new_population);
+        //spawn_food(commands, meshes, materials);
 
         generation_count.0 += 1;
         println!("Nouvelle génération : {}", generation_count.0);
